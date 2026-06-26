@@ -1,8 +1,6 @@
 import sys
 import json
-import os
-import ctypes
-
+import time
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
@@ -13,50 +11,43 @@ from PySide6.QtWidgets import (
 )
 
 from PySide6.QtGui import QShortcut, QKeySequence
-from PySide6.QtCore import QTimer
 
 from song import Song
 from tab_canvas import TabCanvas
 from audio_engine import play_fret, set_guitar_type
 
 
-# ---------------- MAIN WINDOW ----------------
+#main
 class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("TabForge V3.2 - Real-Time Engine")
+        self.setWindowTitle("TabForge V3 - Guitar Editor")
         self.resize(1300, 700)
 
         self.song = Song()
         self.current_file = None
 
-        # playback state
-        self.playing = False
-        self.play_tick = 0
-        self.step_time = 0.1
-
-        self.play_timer = QTimer()
-        self.play_timer.timeout.connect(self.play_step)
-
         self.setup_ui()
 
-    # ---------------- UI ----------------
-
+    # ui
     def setup_ui(self):
 
         toolbar = QToolBar()
         self.addToolBar(toolbar)
 
+        # file
         btn_new = QPushButton("New")
         btn_open = QPushButton("Open")
         btn_save = QPushButton("Save")
-        self.btn_play = QPushButton("Play")
+        btn_play = QPushButton("Play")
 
+        # vroom vroom zoom
         btn_zoom_in = QPushButton("+")
         btn_zoom_out = QPushButton("-")
 
+        # el guitar
         btn_clean = QPushButton("Clean")
         btn_jazz = QPushButton("Jazz")
         btn_drive = QPushButton("Drive")
@@ -65,7 +56,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(btn_new)
         toolbar.addWidget(btn_open)
         toolbar.addWidget(btn_save)
-        toolbar.addWidget(self.btn_play)
+        toolbar.addWidget(btn_play)
 
         toolbar.addSeparator()
 
@@ -79,29 +70,27 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(btn_drive)
         toolbar.addWidget(btn_metal)
 
-        # file actions
+        # file action
         btn_new.clicked.connect(self.new_file)
         btn_open.clicked.connect(self.open_file)
         btn_save.clicked.connect(self.save_file)
+        btn_play.clicked.connect(self.play_song)
 
-        # playback
-        self.btn_play.clicked.connect(self.toggle_play)
-
-        # zoom
+        # more zoomies
         btn_zoom_in.clicked.connect(self.zoom_in)
         btn_zoom_out.clicked.connect(self.zoom_out)
 
-        # guitar types
+        # el dos guitar
         btn_clean.clicked.connect(lambda: set_guitar_type("clean"))
         btn_jazz.clicked.connect(lambda: set_guitar_type("jazz"))
         btn_drive.clicked.connect(lambda: set_guitar_type("overdrive"))
         btn_metal.clicked.connect(lambda: set_guitar_type("metal"))
 
-        # spacebar play
+        # crank that up
         shortcut = QShortcut(QKeySequence("Space"), self)
-        shortcut.activated.connect(self.toggle_play)
+        shortcut.activated.connect(self.play_song)
 
-        # central widget
+        # widget
         container = QWidget()
         self.setCentralWidget(container)
 
@@ -109,22 +98,22 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
 
         top = QHBoxLayout()
+
         top.addWidget(QLabel("Song:"))
 
         self.title = QLineEdit("Untitled Song")
+
         top.addWidget(self.title)
 
         layout.addLayout(top)
 
-        # canvas
+        # 🎸 CANVAS
         self.canvas = TabCanvas(self.song)
         layout.addWidget(self.canvas)
 
-    # ---------------- FILE ----------------
+    # -da save system
 
     def new_file(self):
-
-        self.stop_playback()
 
         self.song = Song()
         self.canvas.song = self.song
@@ -163,8 +152,6 @@ class MainWindow(QMainWindow):
 
     def open_file(self):
 
-        self.stop_playback()
-
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Open TabForge File",
@@ -179,6 +166,7 @@ class MainWindow(QMainWindow):
             data = json.load(f)
 
         self.song = Song.from_dict(data.get("song", {}))
+
         self.title.setText(data.get("title", "Untitled Song"))
 
         self.canvas.song = self.song
@@ -187,63 +175,34 @@ class MainWindow(QMainWindow):
 
         self.current_file = path
 
-    # ---------------- PLAYBACK ENGINE ----------------
+    # playback
 
-    def toggle_play(self):
-
-        if self.playing:
-            self.stop_playback()
-        else:
-            self.start_playback()
-
-    def start_playback(self):
+    def play_song(self):
 
         if not self.song.notes:
             return
 
-        self.playing = True
-        self.play_tick = 0
-
-        self.step_time = 60 / self.song.bpm / 4
-
-        self.play_timer.start(int(self.step_time * 1000))
-
-        self.btn_play.setText("Stop")
-
-    def stop_playback(self):
-
-        self.playing = False
-        self.play_timer.stop()
-        self.play_tick = 0
-
-        self.canvas.set_playhead_tick(0)
-
-        self.btn_play.setText("Play")
-
-    def play_step(self):
-
-        if not self.playing:
-            return
+        bpm = self.song.bpm
+        step = 60 / bpm / 4  # 16th note resolution
 
         max_tick = self.song.get_max_tick()
 
-        if self.play_tick > max_tick:
-            self.stop_playback()
-            return
+        for tick in range(max_tick + 1):
 
-        for note in self.song.get_notes_at_tick(self.play_tick):
+            for note in self.song.get_notes_at_tick(tick):
 
-            play_fret(
-                note.string,
-                note.fret,
-                duration=note.duration * self.step_time
-            )
+                play_fret(
+                    note.string,
+                    note.fret,
+                    duration=note.duration * step
+                )
 
-        self.canvas.set_playhead_tick(self.play_tick)
+            self.canvas.set_playhead_tick(tick)
 
-        self.play_tick += 1
+            QApplication.processEvents()
+            time.sleep(step)
 
-    # ---------------- ZOOM ----------------
+    # zoom the trilogy
 
     def zoom_in(self):
         self.canvas.zoom_in()
@@ -252,7 +211,7 @@ class MainWindow(QMainWindow):
         self.canvas.zoom_out()
 
 
-# ---------------- RUN ----------------
+# run it
 app = QApplication(sys.argv)
 
 window = MainWindow()

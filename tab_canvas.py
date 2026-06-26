@@ -57,7 +57,7 @@ class TabCanvas(QGraphicsView):
 
         self.redraw()
 
-    # ---------------- CORE ----------------
+    # core
 
     def redraw(self):
 
@@ -70,7 +70,7 @@ class TabCanvas(QGraphicsView):
         self.draw_notes()
         self.draw_playhead()
 
-    # ---------------- DYNAMIC TIMELINE ----------------
+    # dynamic time
 
     def update_scene_bounds(self):
 
@@ -95,7 +95,7 @@ class TabCanvas(QGraphicsView):
                 current.height()
             )
 
-    # ---------------- DRAW ----------------
+    # draw
 
     def draw_strings(self):
 
@@ -222,7 +222,7 @@ class TabCanvas(QGraphicsView):
 
         return None
 
-    # ---------------- INPUT ----------------
+    # input
 
     def mousePressEvent(self, event):
 
@@ -292,7 +292,7 @@ class TabCanvas(QGraphicsView):
         elif action == delete_note:
             self.delete_note(note)
 
-    # ---------------- EDITING ----------------
+    # editing
 
     def change_fret(self, note):
 
@@ -333,7 +333,7 @@ class TabCanvas(QGraphicsView):
 
         self.redraw()
 
-    # ---------------- UTILITIES ----------------
+    # util
 
     def set_playhead_tick(self, tick):
         self.playhead_tick = tick
